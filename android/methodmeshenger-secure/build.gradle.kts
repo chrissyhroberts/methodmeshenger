@@ -10,6 +10,15 @@ android {
     defaultConfig {
         minSdk = 26
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 // Native Rust packaging is intentionally added by the eventual host app once

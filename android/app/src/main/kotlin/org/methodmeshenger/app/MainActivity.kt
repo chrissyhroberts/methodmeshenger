@@ -12,12 +12,13 @@ import android.os.Build
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
-import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.EditText
 import org.methodmeshenger.secure.UsbNodeTransport
+import org.json.JSONObject
 
 class MainActivity : Activity() {
     private companion object {
@@ -27,6 +28,9 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var eventLog: TextView
     private lateinit var sendTestButton: Button
+    private lateinit var sendMessageButton: Button
+    private lateinit var messageInput: EditText
+    private lateinit var conversationLog: TextView
     private lateinit var usbTransport: UsbNodeTransport
     private var pendingUsbDeviceName: String? = null
     private val usbPermissionReceiver = object : BroadcastReceiver() {
@@ -57,6 +61,7 @@ class MainActivity : Activity() {
             runOnUiThread {
                 status.text = "Node replied"
                 eventLog.append("\n$line")
+                addConversationEvent(line)
             }
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
@@ -151,13 +156,32 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(teal)
         })
-        root.addView(TextView(this).apply {
-            text = "No conversations yet\nConnect a node to start sending messages off-grid."
+        conversationLog = TextView(this).apply {
+            text = "No messages yet\nConnect a node to start sending messages off-grid."
             textSize = 17f
-            gravity = Gravity.CENTER
             setTextColor(Color.DKGRAY)
-            setPadding(0, 64, 0, 0)
-        }, LinearLayout.LayoutParams(-1, 0, 1f))
+            setPadding(0, 20, 0, 20)
+        }
+        root.addView(conversationLog)
+        messageInput = EditText(this).apply {
+            hint = "Message"
+            setSingleLine(true)
+            isEnabled = false
+        }
+        root.addView(messageInput)
+        sendMessageButton = Button(this).apply {
+            text = "Send message"
+            isEnabled = false
+            setOnClickListener {
+                val message = messageInput.text.toString().trim()
+                if (message.isEmpty()) return@setOnClickListener
+                if (usbTransport.sendLine(message)) {
+                    conversationLog.append("\nYou: $message")
+                    messageInput.text.clear()
+                }
+            }
+        }
+        root.addView(sendMessageButton)
 
         return root
     }
@@ -180,7 +204,22 @@ class MainActivity : Activity() {
 
     private fun updateConnectionStatus(connected: Boolean) {
         sendTestButton.isEnabled = connected
+        sendMessageButton.isEnabled = connected
+        messageInput.isEnabled = connected
         status.text = if (connected) "USB node connected" else "USB node could not be opened"
+    }
+
+    private fun addConversationEvent(line: String) {
+        try {
+            val root = JSONObject(line)
+            if (root.optString("event") != "message") return
+            val frame = root.optJSONObject("frame") ?: return
+            val sender = frame.optString("sender", "node")
+            val payload = frame.optString("payload")
+            if (payload.isNotEmpty()) conversationLog.append("\n$sender: $payload")
+        } catch (_: Exception) {
+            // Diagnostics remain visible in the raw event log if a line is not JSON.
+        }
     }
 
     override fun onDestroy() {

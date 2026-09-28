@@ -35,7 +35,10 @@ class MainActivity : Activity() {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
             }
-            if (device == null || !intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+            val manager = getSystemService(Context.USB_SERVICE) as UsbManager
+            val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) ||
+                (device != null && manager.hasPermission(device))
+            if (device == null || !granted) {
                 status.text = "USB permission was not granted"
                 return
             }

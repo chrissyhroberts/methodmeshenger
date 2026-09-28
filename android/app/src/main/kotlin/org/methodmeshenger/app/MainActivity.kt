@@ -200,9 +200,9 @@ class MainActivity : Activity() {
         pendingUsbDeviceName = device.deviceName
         val intent = PendingIntent.getBroadcast(
             this,
-            0,
+            device.deviceId,
             Intent(ACTION_USB_PERMISSION),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val manager = getSystemService(Context.USB_SERVICE) as UsbManager
         if (manager.hasPermission(device)) {

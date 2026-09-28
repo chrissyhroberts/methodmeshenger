@@ -96,6 +96,26 @@ identifies the original `message_id`, the receiver and a status such as
 `received`, `assembled` or `failed`. A radio-level send result is not an
 application acknowledgement.
 
+The current direct-text firmware emits an `ack` as soon as the receiving node
+has validated and accepted the frame. Client UIs may present this as a
+delivered tick (`✓✓`); it is a node delivery receipt, not proof that a human
+has opened or read the message. A future client-level read receipt must be a
+separate control message.
+
+For USB-connected clients, text is passed to the firmware in an ASCII-safe
+bridge object:
+
+```json
+{
+  "methodmeshenger_serial": 1,
+  "encoding": "utf-8",
+  "payload_b64": "..."
+}
+```
+
+The firmware decodes `payload_b64` before creating the transport frame. This
+keeps multi-byte UTF-8 content out of the serial console's character decoder.
+
 ## Canonical integrity input
 
 CRC must never be calculated from serialized JSON object order. Different

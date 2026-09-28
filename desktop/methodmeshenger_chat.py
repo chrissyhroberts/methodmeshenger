@@ -7,10 +7,19 @@ import json
 import queue
 import threading
 import tkinter as tk
+from dataclasses import dataclass
 from tkinter import messagebox, ttk
 
 import serial
 from serial.tools import list_ports
+
+
+@dataclass
+class ConversationMessage:
+    sender: str
+    text: str
+    message_id: str | None = None
+    delivery: str = "pending"
 
 
 class ChatApp(tk.Tk):
@@ -21,6 +30,7 @@ class ChatApp(tk.Tk):
         self.minsize(420, 480)
         self.serial: serial.Serial | None = None
         self.events: queue.Queue[str] = queue.Queue()
+        self.conversation: list[ConversationMessage] = []
         self.build_ui()
         self.refresh_ports()
         self.after(100, self.consume_events)
@@ -106,17 +116,41 @@ class ChatApp(tk.Tk):
         if event.get("event") == "message":
             frame = event.get("frame", {})
             self.status.set(f"Message from {frame.get('sender', 'node')}")
-            self.append_message(str(frame.get("sender", "node")), str(frame.get("payload", "")))
+            self.add_message(str(frame.get("sender", "node")), str(frame.get("payload", "")), "delivered")
+        elif event.get("event") == "sent":
+            frame = event.get("frame", {})
+            payload = str(frame.get("payload", ""))
+            outgoing = next((item for item in reversed(self.conversation) if item.sender == "You" and item.text == payload and item.message_id is None), None)
+            if outgoing is not None:
+                outgoing.message_id = str(frame.get("message_id", ""))
+                outgoing.delivery = "sent"
+                self.render_messages()
+                self.status.set("Message sent to radio")
         elif event.get("event") == "ack_received":
+            frame = event.get("frame", {})
+            acknowledged_id = str(frame.get("payload", ""))
+            outgoing = next((item for item in reversed(self.conversation) if item.message_id == acknowledged_id), None)
+            if outgoing is not None:
+                outgoing.delivery = "delivered"
+                self.render_messages()
             self.status.set("Message delivered to the radio peer")
         elif event.get("event") == "ready":
             self.status.set(f"Connected · {event.get('node_id', 'node')}")
         elif event.get("event") == "error":
             self.status.set(f"Node error: {event.get('detail', 'unknown error')}")
 
-    def append_message(self, sender: str, payload: str) -> None:
+    def add_message(self, sender: str, payload: str, delivery: str = "pending") -> None:
+        self.conversation.append(ConversationMessage(sender, payload, delivery=delivery))
+        self.render_messages()
+
+    def render_messages(self) -> None:
         self.messages.configure(state="normal")
-        self.messages.insert("end", f"{sender}: {payload}\n")
+        self.messages.delete("1.0", "end")
+        for item in self.conversation:
+            ticks = ""
+            if item.sender == "You":
+                ticks = {"delivered": " ✓✓", "sent": " ✓"}.get(item.delivery, " ·")
+            self.messages.insert("end", f"{item.sender}: {item.text}{ticks}\n")
         self.messages.see("end")
         self.messages.configure(state="disabled")
 
@@ -133,7 +167,7 @@ class ChatApp(tk.Tk):
         except serial.SerialException as error:
             self.status.set(f"Send failed: {error}")
             return
-        self.append_message("You", text)
+        self.add_message("You", text)
         self.input.delete(0, "end")
 
     def close_serial(self) -> None:

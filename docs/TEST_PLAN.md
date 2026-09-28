@@ -29,9 +29,12 @@ durable spool state transitions.
 5. Send a one-character text message in each direction.
 6. Confirm the receiver reports `received_raw` and `message`.
 7. Repeat the same frame and confirm it is deduplicated.
-8. Disconnect the receiver, send again, and confirm the sender reports a
-   delivery failure rather than a false application receipt.
-9. Reconnect the receiver and verify the future spool layer retries the item.
+8. Send ASCII and emoji text in both directions and confirm exact payloads.
+9. Confirm the sender shows a radio-send tick and then a delivered tick only
+   after `ack_received`.
+10. Disconnect the receiver, send again, and confirm the sender does not show a
+    delivered receipt.
+11. Reconnect the receiver and verify the future spool layer retries the item.
 
 The current firmware is still a transport demo. Do not use it to transmit
 sensitive content until the encrypted client path is implemented.
@@ -46,3 +49,7 @@ The next hardware checks are power-cycle recovery, delayed-ACK retry, and a
 multi-chunk message while both serial clients remain active. The first
 300-character, three-chunk transfer has now passed with exact reassembly and
 all three sender spool items reaching `received`.
+
+The Android and desktop clients have also passed a direct phone-to-laptop
+emoji exchange over two ESP32-C3 nodes. Their second tick represents receiving
+node acknowledgement, not human read state.

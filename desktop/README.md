@@ -13,4 +13,6 @@ python3 desktop/methodmeshenger_chat.py
 
 Choose the ESP serial port, connect, and send messages. Incoming messages are
 shown as chat text; delivery acknowledgements and node errors appear in the
-status line.
+status line. Outgoing messages show `✓` when the local node accepts the radio
+send and `✓✓` when the peer node acknowledges receipt. These are delivery
+receipts, not proof that a person has read the message.

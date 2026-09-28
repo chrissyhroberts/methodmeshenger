@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.EditText
+import android.view.inputmethod.EditorInfo
 import org.methodmeshenger.secure.UsbNodeTransport
 import org.json.JSONObject
 
@@ -166,20 +167,22 @@ class MainActivity : Activity() {
         messageInput = EditText(this).apply {
             hint = "Message"
             setSingleLine(true)
+            imeOptions = EditorInfo.IME_ACTION_SEND
             isEnabled = false
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEND) {
+                    sendMessage()
+                    true
+                } else {
+                    false
+                }
+            }
         }
         root.addView(messageInput)
         sendMessageButton = Button(this).apply {
             text = "Send message"
             isEnabled = false
-            setOnClickListener {
-                val message = messageInput.text.toString().trim()
-                if (message.isEmpty()) return@setOnClickListener
-                if (usbTransport.sendLine(message)) {
-                    conversationLog.append("\nYou: $message")
-                    messageInput.text.clear()
-                }
-            }
+            setOnClickListener { sendMessage() }
         }
         root.addView(sendMessageButton)
 
@@ -207,6 +210,15 @@ class MainActivity : Activity() {
         sendMessageButton.isEnabled = connected
         messageInput.isEnabled = connected
         status.text = if (connected) "USB node connected" else "USB node could not be opened"
+    }
+
+    private fun sendMessage() {
+        val message = messageInput.text.toString().trim()
+        if (message.isEmpty()) return
+        if (usbTransport.sendLine(message)) {
+            conversationLog.append("\nYou: $message")
+            messageInput.text.clear()
+        }
     }
 
     private fun addConversationEvent(line: String) {

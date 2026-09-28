@@ -7,6 +7,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -63,18 +64,20 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
 
     private fun readLoop() {
         val buffer = ByteArray(512)
-        val pending = StringBuilder()
+        val pending = ByteArrayOutputStream()
         while (running.get()) {
             val current = connection ?: break
             val endpoint = input ?: break
             val count = current.bulkTransfer(endpoint, buffer, buffer.size, 250)
             if (count <= 0) continue
-            pending.append(String(buffer, 0, count, StandardCharsets.UTF_8))
+            pending.write(buffer, 0, count)
             while (true) {
-                val newline = pending.indexOf("\n")
+                val bytes = pending.toByteArray()
+                val newline = bytes.indexOf('\n'.code.toByte())
                 if (newline < 0) break
-                val line = pending.substring(0, newline).trim()
-                pending.delete(0, newline + 1)
+                val line = String(bytes, 0, newline, StandardCharsets.UTF_8).trim()
+                pending.reset()
+                pending.write(bytes, newline + 1, bytes.size - newline - 1)
                 if (line.isNotEmpty()) onLine(line)
             }
         }

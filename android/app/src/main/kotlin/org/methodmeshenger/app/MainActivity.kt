@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.EditText
+import android.widget.ScrollView
 import android.view.inputmethod.EditorInfo
 import org.methodmeshenger.secure.UsbNodeTransport
 import org.json.JSONObject
@@ -28,6 +29,7 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var eventLog: TextView
+    private lateinit var eventScroll: ScrollView
     private lateinit var sendTestButton: Button
     private lateinit var sendMessageButton: Button
     private lateinit var messageInput: EditText
@@ -62,6 +64,7 @@ class MainActivity : Activity() {
             runOnUiThread {
                 status.text = "Node replied"
                 eventLog.append("\n$line")
+                eventScroll.post { eventScroll.fullScroll(ScrollView.FOCUS_DOWN) }
                 addConversationEvent(line)
             }
         }
@@ -124,7 +127,11 @@ class MainActivity : Activity() {
             setTextIsSelectable(true)
             setPadding(0, 0, 0, 12)
         }
-        nodeCard.addView(eventLog)
+        eventScroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(eventLog)
+        }
+        nodeCard.addView(eventScroll, LinearLayout.LayoutParams(-1, dp(220)))
         nodeCard.addView(Button(this).apply {
             text = "Scan USB nodes"
             setOnClickListener {
@@ -220,6 +227,8 @@ class MainActivity : Activity() {
             messageInput.text.clear()
         }
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun addConversationEvent(line: String) {
         try {

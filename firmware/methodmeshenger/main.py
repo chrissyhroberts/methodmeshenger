@@ -4,17 +4,16 @@ Serial input is broadcast over ESP-NOW. Received frames are printed as JSON.
 This deliberately has no BLE, provisioning, encryption or MethodMesh code.
 """
 
-import binascii
 import json
 import time
 from machine import unique_id
 
 import network
 import espnow
+import wire
 
 
-VERSION = 1
-NODE_ID = "node-" + binascii.hexlify(unique_id()[-4:]).decode()
+NODE_ID = "node-" + "".join("%02x" % byte for byte in unique_id()[-4:])
 BROADCAST = b"\xff\xff\xff\xff\xff\xff"
 NODE_1_MAC = b"\x44\xb1\x76\x02\x16\xe0"
 NODE_2_MAC = b"\x44\xb1\x76\x07\x91\x30"
@@ -34,44 +33,13 @@ def mac_text(mac):
     return ":".join("%02x" % byte for byte in mac)
 
 
-def checksum(frame):
-    # Do not hash serialized JSON: MicroPython may emit dictionary keys in a
-    # different order on another device. Use an explicit, stable field order.
-    raw = "|".join((
-        str(frame.get("v", "")),
-        str(frame.get("id", "")),
-        str(frame.get("from", "")),
-        str(frame.get("seq", "")),
-        str(frame.get("type", "")),
-        str(frame.get("payload", "")),
-    )).encode()
-    return "%08x" % (binascii.crc32(raw) & 0xffffffff)
-
-
 def make_frame(text):
     global sequence
     sequence += 1
-    frame = {
-        "v": VERSION,
-        "id": NODE_ID + "-" + str(sequence),
-        "from": NODE_ID,
-        "seq": sequence,
-        "type": "text",
-        "payload": text[:MAX_PAYLOAD],
-    }
-    frame["crc"] = checksum(frame)
-    return frame
-
-
-def valid_frame(frame):
-    return (
-        isinstance(frame, dict)
-        and frame.get("v") == VERSION
-        and frame.get("type") == "text"
-        and isinstance(frame.get("id"), str)
-        and isinstance(frame.get("payload"), str)
-        and frame.get("crc") == checksum(frame)
-    )
+    now_ms = time.ticks_ms()
+    message_id = NODE_ID + "-" + str(now_ms) + "-" + str(sequence)
+    conversation_id = NODE_ID + ":" + mac_text(peer_mac)
+    return wire.text_frame(NODE_ID, mac_text(peer_mac), sequence, message_id, conversation_id, text[:MAX_PAYLOAD], now_ms)
 
 
 def remember(message_id):
@@ -88,10 +56,20 @@ def process_incoming(host, raw):
     emit("received_raw", peer=mac_text(host), bytes=len(raw))
     try:
         frame = json.loads(raw.decode())
-        if not valid_frame(frame):
-            emit("invalid", peer=mac_text(host), frame=frame, expected_crc=checksum(frame), received_crc=frame.get("crc"))
-        elif remember(frame["id"]):
-            emit("message", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
+        if not wire.valid(frame):
+            emit("invalid", peer=mac_text(host), frame=frame, expected_crc=wire.checksum(frame), received_crc=frame.get("crc32"))
+        elif remember(frame["message_id"]):
+            if frame.get("kind") == "ack":
+                emit("ack_received", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
+            else:
+                emit("message", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
+                try:
+                    radio.add_peer(host, channel=RADIO_CHANNEL)
+                except Exception:
+                    pass
+                ack = wire.ack_frame(NODE_ID, frame.get("sender", mac_text(host)), frame["message_id"], frame.get("conversation_id", ""), time.ticks_ms())
+                ack_sent = radio.send(host, json.dumps(ack).encode(), True)
+                emit("ack_sent", ack_for=frame["message_id"], peer=mac_text(host), radio_ok=ack_sent)
     except Exception as error:
         emit("error", stage="receive", detail=str(error), peer=mac_text(host))
 

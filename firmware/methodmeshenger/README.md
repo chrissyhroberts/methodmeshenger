@@ -10,7 +10,7 @@ integration come later.
 ## First test
 
 1. Flash a MicroPython image suitable for the board.
-2. Copy `boot.py` and `main.py` to each board.
+2. Copy `boot.py`, `wire.py` and `main.py` to each board.
 3. Open one serial console per board at 115200 baud.
 4. Send a line of text in either console.
 
@@ -18,8 +18,9 @@ The node prints JSON events for received messages and accepts plain text for
 outgoing direct messages between the two current test boards. The radio
 diagnostics include the actual MAC addresses, channel and delivery result.
 
-The current test envelope has a version, message ID, sender, sequence number,
-type, payload and stable field-ordered CRC. Duplicate messages are ignored
+The current test envelope has a version, message ID, conversation, sender,
+recipient, sequence/chunk fields, type, payload and stable field-ordered CRC.
+Valid messages produce application ACKs and duplicate messages are ignored
 locally. The forward-looking envelope for attachments and voice is documented
 in [`docs/PROTOCOL.md`](../../docs/PROTOCOL.md). This is a transport testbed,
 not yet a secure or production messenger.

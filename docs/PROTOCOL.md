@@ -1,5 +1,9 @@
 # MethodMeshenger wire protocol
 
+The transport envelope is not the security protocol. Payload encryption,
+identity binding and key lifecycle are defined separately in
+[`SECURITY.md`](SECURITY.md).
+
 ## Design goals
 
 The packet format must remain useful when MethodMeshenger grows from text to
@@ -39,6 +43,7 @@ The logical envelope is:
   "created_at_ms": 0,
   "expires_at_ms": 0,
   "ttl": 1,
+  "metadata": "",
   "payload": "hello",
   "crc32": "00000000"
 }
@@ -59,6 +64,7 @@ Field meanings:
 | `chunk_index` / `chunk_count` | Chunk position and total count. |
 | `created_at_ms` / `expires_at_ms` | Optional sender timestamps. Zero means unknown. |
 | `ttl` | Forwarding limit; the first direct implementation uses `1`. |
+| `metadata` | Compact JSON descriptor for the content; empty for text and ACKs. |
 | `payload` | Text or one bounded encoded chunk. |
 | `crc32` | Integrity check over the canonical field list below. |
 
@@ -74,6 +80,7 @@ The first chunk should carry a compact descriptor in a future `metadata`
 field, for example media type, filename, byte length and content hash. The
 actual bytes are chunked across subsequent frames. A complete attachment is
 identified by the same `message_id`, not by a new message ID per chunk.
+The descriptor is carried in `metadata` and must be identical on every chunk.
 
 ### Voice
 
@@ -98,7 +105,7 @@ Version 1 calculates CRC32 over the UTF-8 bytes of these values joined with
 `|`, in exactly this order:
 
 ```text
-version|message_id|conversation_id|sender|recipient|kind|encoding|sequence|chunk_index|chunk_count|created_at_ms|expires_at_ms|ttl|payload
+version|message_id|conversation_id|sender|recipient|kind|encoding|sequence|chunk_index|chunk_count|created_at_ms|expires_at_ms|ttl|metadata|payload
 ```
 
 Missing optional values are represented by an empty string or `0` according to
@@ -120,12 +127,15 @@ uses one-chunk text messages.
 3. A receiver must deduplicate by `message_id` and `chunk_index`.
 4. A receiver must not deliver incomplete attachments or voice content as if
    they were complete.
-5. A future version must define a migration path rather than silently changing
+5. `@username` is resolved by a client directory before a frame is created;
+   the wire recipient is a stable account/device route, not a mutable handle.
+6. A future version must define a migration path rather than silently changing
    the meaning of an existing field.
 
 ## Current implementation gap
 
 The first firmware slice currently implements the envelope only partially:
-text, direct peer delivery, diagnostics and stable CRC are present. Conversation
-IDs, chunking, acknowledgements, attachment metadata, voice and durable spool
-remain planned work.
+text, direct peer delivery, diagnostics, application ACKs and stable CRC are
+present. The reference library also models chunking and content metadata;
+attachment/voice transfer and durable node spooling remain planned firmware
+work.

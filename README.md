@@ -11,12 +11,27 @@ integration is added.
 
 The wire format is designed from the outset for text, attachments and voice.
 See [the protocol design](docs/PROTOCOL.md) before changing the firmware.
+The security boundary is described in [the security design](docs/SECURITY.md).
 
 ## Current status
 
 The current test harness supports direct ESP-NOW messages between two ESP32-C3
-nodes, with explicit peer/channel diagnostics, duplicate IDs and a stable
-field-ordered checksum. It is not yet secure, store-and-forward, or a finished
-messenger.
+nodes, with explicit peer/channel diagnostics, duplicate IDs, application ACKs
+and a stable field-ordered checksum. The host-side reference library now also
+defines signed onboarding records, `@username`/group resolution, a durable
+spool, chunk assembly and a bootstrap encrypted-payload boundary. It is not
+yet a finished secure messenger: the constrained firmware remains plaintext
+and the final asynchronous ratchet is still ahead.
 
 The working firmware is in [`firmware/methodmeshenger`](firmware/methodmeshenger).
+
+## Development tests
+
+With the development dependency installed, run:
+
+```text
+python3 -m unittest discover -s tests -v
+```
+
+The Python client primitives are the reference for the constrained firmware;
+the current ESP demo remains plaintext and development-only.

@@ -57,7 +57,9 @@ class MainActivity : Activity() {
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            // The USB manager delivers the permission result from the system
+            // process, so this dynamic receiver must accept system broadcasts.
+            registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
             registerReceiver(usbPermissionReceiver, filter)
@@ -140,7 +142,7 @@ class MainActivity : Activity() {
         val intent = PendingIntent.getBroadcast(
             this,
             0,
-            Intent(ACTION_USB_PERMISSION).setPackage(packageName),
+            Intent(ACTION_USB_PERMISSION),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val manager = getSystemService(Context.USB_SERVICE) as UsbManager

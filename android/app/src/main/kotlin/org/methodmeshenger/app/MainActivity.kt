@@ -23,6 +23,13 @@ import org.methodmeshenger.secure.UsbNodeTransport
 import org.json.JSONObject
 
 class MainActivity : Activity() {
+    private data class ConversationEntry(
+        val sender: String,
+        val text: String,
+        var messageId: String? = null,
+        var delivery: String = "pending",
+    )
+
     private companion object {
         const val ACTION_USB_PERMISSION = "org.methodmeshenger.app.USB_PERMISSION"
     }
@@ -36,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var conversationLog: TextView
     private lateinit var usbTransport: UsbNodeTransport
     private var pendingUsbDeviceName: String? = null
+    private val conversationEntries = mutableListOf<ConversationEntry>()
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != ACTION_USB_PERMISSION) return
@@ -65,7 +73,7 @@ class MainActivity : Activity() {
                 status.text = "Node replied"
                 eventLog.append("\n$line")
                 eventScroll.post { eventScroll.fullScroll(ScrollView.FOCUS_DOWN) }
-                addConversationEvent(line)
+                handleConversationEvent(line)
             }
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
@@ -148,11 +156,7 @@ class MainActivity : Activity() {
             text = "Send test message"
             isEnabled = false
             setOnClickListener {
-                status.text = if (usbTransport.sendLine("ping")) {
-                    "Sent ping — waiting for node response"
-                } else {
-                    "The USB node is no longer connected"
-                }
+                sendTrackedMessage("ping")
             }
         }
         nodeCard.addView(sendTestButton)
@@ -222,24 +226,73 @@ class MainActivity : Activity() {
     private fun sendMessage() {
         val message = messageInput.text.toString().trim()
         if (message.isEmpty()) return
-        if (usbTransport.sendLine(message)) {
-            conversationLog.append("\nYou: $message")
-            messageInput.text.clear()
+        if (sendTrackedMessage(message)) messageInput.text.clear()
+    }
+
+    private fun sendTrackedMessage(message: String): Boolean {
+        if (!usbTransport.sendLine(message)) {
+            status.text = "The USB node is no longer connected"
+            return false
         }
+        conversationEntries += ConversationEntry("You", message)
+        renderConversation()
+        status.text = "Sending — waiting for radio confirmation"
+        return true
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    private fun addConversationEvent(line: String) {
+    private fun handleConversationEvent(line: String) {
         try {
             val root = JSONObject(line)
-            if (root.optString("event") != "message") return
-            val frame = root.optJSONObject("frame") ?: return
-            val sender = frame.optString("sender", "node")
-            val payload = frame.optString("payload")
-            if (payload.isNotEmpty()) conversationLog.append("\n$sender: $payload")
+            val frame = root.optJSONObject("frame")
+            when (root.optString("event")) {
+                "message" -> {
+                    if (frame == null) return
+                    val payload = frame.optString("payload")
+                    if (payload.isNotEmpty()) {
+                        conversationEntries += ConversationEntry(frame.optString("sender", "node"), payload, delivery = "delivered")
+                        renderConversation()
+                    }
+                }
+                "sent" -> {
+                    if (frame == null) return
+                    val payload = frame.optString("payload")
+                    val outgoing = conversationEntries.lastOrNull { it.sender == "You" && it.text == payload && it.messageId == null }
+                    if (outgoing != null) {
+                        outgoing.messageId = frame.optString("message_id")
+                        outgoing.delivery = "sent"
+                        renderConversation()
+                    }
+                }
+                "ack_received" -> {
+                    if (frame == null) return
+                    val acknowledgedId = frame.optString("payload")
+                    val outgoing = conversationEntries.lastOrNull { it.messageId == acknowledgedId }
+                    if (outgoing != null) {
+                        outgoing.delivery = "delivered"
+                        renderConversation()
+                        status.text = "Message delivered"
+                    }
+                }
+            }
         } catch (_: Exception) {
             // Diagnostics remain visible in the raw event log if a line is not JSON.
+        }
+    }
+
+    private fun renderConversation() {
+        if (conversationEntries.isEmpty()) {
+            conversationLog.text = "No messages yet\nConnect a node to start sending messages off-grid."
+            return
+        }
+        conversationLog.text = conversationEntries.joinToString("\n") { entry ->
+            val ticks = when (entry.delivery) {
+                "delivered" -> " ✓✓"
+                "sent" -> " ✓"
+                else -> " ·"
+            }
+            "${entry.sender}: ${entry.text}${if (entry.sender == "You") ticks else ""}"
         }
     }
 

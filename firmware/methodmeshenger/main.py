@@ -42,6 +42,17 @@ def make_frame(text):
     return wire.text_frame(NODE_ID, mac_text(peer_mac), sequence, message_id, conversation_id, text[:MAX_PAYLOAD], now_ms)
 
 
+def serial_frame(line):
+    """Accept a client-shaped frame, while keeping plain text convenient."""
+    try:
+        candidate = json.loads(line)
+        if wire.valid(candidate):
+            return candidate
+    except Exception:
+        pass
+    return make_frame(line)
+
+
 def remember(message_id):
     if message_id in seen:
         return False
@@ -126,7 +137,7 @@ while True:
         if poll.poll(0):
             line = __import__("sys").stdin.readline().strip()
             if line:
-                frame = make_frame(line)
+                frame = serial_frame(line)
                 sent = radio.send(peer_mac, json.dumps(frame).encode(), True)
                 emit("sent", frame=frame, local_mac=mac_text(local_mac), peer=mac_text(peer_mac), peer_registered=peer_registered, radio_ok=sent, configured_channel=RADIO_CHANNEL, live_channel=network.WLAN(network.WLAN.IF_STA).config("channel"))
     except Exception as error:

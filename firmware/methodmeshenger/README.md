@@ -14,8 +14,9 @@ integration come later.
 3. Open one serial console per board at 115200 baud.
 4. Send a line of text in either console.
 
-The node prints JSON events for received messages and accepts plain text for
-outgoing direct messages between the two current test boards. The radio
+The node prints JSON events for received messages and accepts either plain text
+or a validated MethodMeshenger JSON frame for outgoing direct messages between
+the two current test boards. The radio
 diagnostics include the actual MAC addresses, channel and delivery result.
 
 The current test envelope has a version, message ID, conversation, sender,

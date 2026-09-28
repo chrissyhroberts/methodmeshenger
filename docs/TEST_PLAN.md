@@ -8,6 +8,14 @@ Run from the repository root:
 python3 -m unittest discover -s tests -v
 ```
 
+## Client smoke test
+
+Install the development dependencies, then run one client per board using the
+serial-client command in the root README. Send a short message in both
+directions and confirm that each side prints the received text and that the
+sender receives an `ack_received` event. Repeat the same message line to check
+that the receiver does not duplicate it when the same frame is replayed.
+
 These tests cover canonical CRC, tamper rejection, UTF-8 chunking, ACK frames,
 per-chunk deduplication, username collision handling, group resolution and
 durable spool state transitions.

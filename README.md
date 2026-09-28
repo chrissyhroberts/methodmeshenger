@@ -25,6 +25,21 @@ and the final asynchronous ratchet is still ahead.
 
 The working firmware is in [`firmware/methodmeshenger`](firmware/methodmeshenger).
 
+## Laptop client
+
+With `pyserial` installed, two laptops/terminals can use the client interface
+instead of typing raw serial frames:
+
+```text
+python3 -m methodmeshenger.serial_client /dev/cu.usbmodemXXXX \
+  --username @alice --device-id device-a \
+  --peer @bob --peer-device-id device-b
+```
+
+Run the same command on the second node with the identities reversed. The
+client resolves the handle, creates the canonical frame, tracks it in the
+local spool, and marks it received when an application ACK comes back.
+
 ## Development tests
 
 With the development dependency installed, run:

@@ -1,4 +1,5 @@
 import unittest
+import base64
 
 from methodmeshenger.crypto import CryptoError, Identity, open_sealed, seal
 
@@ -16,7 +17,9 @@ class CryptoTests(unittest.TestCase):
         alice = Identity.generate()
         bob = Identity.generate()
         sealed = seal(b"private hello", sender=alice, recipient_exchange_public=bob.exchange.public_key().public_bytes_raw(), associated_data=b"aad")
-        sealed["ciphertext"] = sealed["ciphertext"][:-1] + ("A" if sealed["ciphertext"][-1] != "A" else "B")
+        ciphertext = bytearray(base64.urlsafe_b64decode(sealed["ciphertext"] + "=" * (-len(sealed["ciphertext"]) % 4)))
+        ciphertext[0] ^= 1
+        sealed["ciphertext"] = base64.urlsafe_b64encode(bytes(ciphertext)).decode("ascii").rstrip("=")
         with self.assertRaises(CryptoError):
             open_sealed(sealed, recipient=bob, sender_signing_public=alice.signing.public_key().public_bytes_raw(), associated_data=b"aad")
 

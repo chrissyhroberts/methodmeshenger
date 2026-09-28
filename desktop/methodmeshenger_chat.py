@@ -43,6 +43,9 @@ class ChatApp(tk.Tk):
         ttk.Label(root, textvariable=self.status).pack(anchor="w", pady=(8, 8))
         self.messages = tk.Text(root, state="disabled", wrap="word", height=18)
         self.messages.pack(fill="both", expand=True)
+        ttk.Label(root, text="Node diagnostics").pack(anchor="w", pady=(10, 2))
+        self.diagnostics = tk.Text(root, state="disabled", wrap="none", height=7)
+        self.diagnostics.pack(fill="x")
         composer = ttk.Frame(root)
         composer.pack(fill="x", pady=(10, 0))
         self.input = ttk.Entry(composer)
@@ -91,6 +94,10 @@ class ChatApp(tk.Tk):
         self.after(100, self.consume_events)
 
     def handle_event(self, line: str) -> None:
+        self.diagnostics.configure(state="normal")
+        self.diagnostics.insert("end", line + "\n")
+        self.diagnostics.see("end")
+        self.diagnostics.configure(state="disabled")
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
@@ -98,6 +105,7 @@ class ChatApp(tk.Tk):
             return
         if event.get("event") == "message":
             frame = event.get("frame", {})
+            self.status.set(f"Message from {frame.get('sender', 'node')}")
             self.append_message(str(frame.get("sender", "node")), str(frame.get("payload", "")))
         elif event.get("event") == "ack_received":
             self.status.set("Message delivered to the radio peer")

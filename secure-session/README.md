@@ -4,7 +4,8 @@ This crate is the client-side Apache-2.0 adapter around vodozemac/Olm. It is
 not firmware and must never be linked into an ESP node. The transport carries
 serialized ciphertext only.
 
-The first test covers asynchronous pre-key establishment, ratcheted reply,
-and envelope-associated-data binding. Account and session pickles still need a
-client storage layer with a separately managed encryption key before this can
-be enabled in the messenger.
+The tests cover asynchronous pre-key establishment, ratcheted replies,
+envelope-associated-data binding, and restoring account/session state from
+encrypted vodozemac pickles. The host application still needs to provide the
+actual platform-backed key storage and recovery UX before this can be enabled
+in the messenger.

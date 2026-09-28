@@ -29,17 +29,20 @@ Use vodozemac/Olm for one-to-one sessions. vodozemac is Apache-2.0 licensed,
 implements an asynchronous Olm Double Ratchet, and exposes encrypted state
 pickling for client persistence.
 
-The adapter is pinned to vodozemac `0.11` and its first round-trip test is
-passing locally. This proves the library boundary, not production readiness:
-client-side encrypted persistence, device verification, recovery, and Android
-FFI still need to be implemented and tested.
+The adapter is pinned to vodozemac `0.11`. Local tests now cover the first
+pre-key exchange, ratcheted replies, envelope binding, encrypted account and
+session pickles, and wrong-key rejection. The pickle helpers are deliberately
+small: the host application must supply a platform-backed 32-byte key and
+define its recovery policy. This proves the library boundary, not production
+readiness; device verification, recovery UX, and Android FFI still need to be
+implemented and tested.
 
 Megolm is reserved for a later group-message design because its single-ratchet
 trade-offs differ from one-to-one Olm.
 
 ## Implementation rule
 
-Until the adapter has passed client persistence, verification and interoperability
+Until the adapter has passed verification and interoperability
 tests, the client remains explicitly marked development-only. It may exercise
 transport, addressing, chunking and ACKs, but it must not be described as
 secure messaging.

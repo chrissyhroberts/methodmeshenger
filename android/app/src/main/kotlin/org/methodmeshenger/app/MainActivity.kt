@@ -26,20 +26,23 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var usbTransport: UsbNodeTransport
+    private var pendingUsbDeviceName: String? = null
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != ACTION_USB_PERMISSION) return
-            val device = if (Build.VERSION.SDK_INT >= 33) {
+            val broadcastDevice = if (Build.VERSION.SDK_INT >= 33) {
                 intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
             } else {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
             }
             val manager = getSystemService(Context.USB_SERVICE) as UsbManager
-            val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) ||
-                (device != null && manager.hasPermission(device))
+            val device = broadcastDevice ?: pendingUsbDeviceName?.let { manager.deviceList[it] }
+            val broadcastGranted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+            val managerGranted = device != null && manager.hasPermission(device)
+            val granted = broadcastGranted || managerGranted
             if (device == null || !granted) {
-                status.text = "USB permission was not granted"
+                status.text = "USB permission failed (device=${device != null}, result=$broadcastGranted)"
                 return
             }
             status.text = if (usbTransport.connect(device)) {
@@ -139,6 +142,7 @@ class MainActivity : Activity() {
     }
 
     private fun requestUsbPermission(device: UsbDevice) {
+        pendingUsbDeviceName = device.deviceName
         val intent = PendingIntent.getBroadcast(
             this,
             0,

@@ -5,6 +5,7 @@ import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
@@ -15,6 +16,7 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
     private var connection: UsbDeviceConnection? = null
     private var input: UsbEndpoint? = null
     private var output: UsbEndpoint? = null
+    private var selectedInterface: UsbInterface? = null
     private val running = AtomicBoolean(false)
 
     fun devices(): List<UsbDevice> = usbManager.deviceList.values.toList()
@@ -24,11 +26,12 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
         if (!usbManager.hasPermission(device)) return false
         val selected = findBulkEndpoints(device) ?: return false
         val opened = usbManager.openDevice(device) ?: return false
-        if (!opened.claimInterface(selected.interfaceIndex, true)) {
+        if (!opened.claimInterface(selected.usbInterface, true)) {
             opened.close()
             return false
         }
         connection = opened
+        selectedInterface = selected.usbInterface
         input = selected.input
         output = selected.output
         running.set(true)
@@ -48,8 +51,12 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
 
     fun close() {
         running.set(false)
-        connection?.close()
+        connection?.let { current ->
+            selectedInterface?.let { current.releaseInterface(it) }
+            current.close()
+        }
         connection = null
+        selectedInterface = null
         input = null
         output = null
     }
@@ -74,7 +81,7 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
     }
 
     private data class BulkEndpoints(
-        val interfaceIndex: Int,
+        val usbInterface: UsbInterface,
         val input: UsbEndpoint,
         val output: UsbEndpoint,
     )
@@ -90,7 +97,7 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
                 if (endpoint.direction == UsbConstants.USB_DIR_IN) inEndpoint = endpoint
                 if (endpoint.direction == UsbConstants.USB_DIR_OUT) outEndpoint = endpoint
             }
-            if (inEndpoint != null && outEndpoint != null) return BulkEndpoints(index, inEndpoint, outEndpoint)
+            if (inEndpoint != null && outEndpoint != null) return BulkEndpoints(usbInterface, inEndpoint, outEndpoint)
         }
         return null
     }

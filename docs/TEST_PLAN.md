@@ -35,3 +35,14 @@ durable spool state transitions.
 
 The current firmware is still a transport demo. Do not use it to transmit
 sensitive content until the encrypted client path is implemented.
+
+The first physical end-to-end client run completed successfully on the two
+ESP32-C3 boards: client A sent through `/dev/cu.usbmodem1101`, client B received
+through `/dev/cu.usbmodem2101`, and the sender spool reached `received` after
+the application acknowledgement returned. Both boards reported channel 6 and
+`radio_ok: true` in both directions.
+
+The next hardware checks are power-cycle recovery, delayed-ACK retry, and a
+multi-chunk message while both serial clients remain active. The first
+300-character, three-chunk transfer has now passed with exact reassembly and
+all three sender spool items reaching `received`.

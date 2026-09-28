@@ -54,6 +54,12 @@ class DirectoryAndSpoolTests(unittest.TestCase):
             spool.transition(key, "assembled")
         self.assertEqual(spool.expire_due(10), [key])
 
+    def test_stale_inflight_item_becomes_retryable(self):
+        spool = Spool()
+        key = spool.enqueue(self.frame(), now_ms=1)
+        spool.transition(key, "enroute", now_ms=2)
+        self.assertEqual(spool.retryable(100, 50)[0][0], key)
+
 
 if __name__ == "__main__":
     unittest.main()

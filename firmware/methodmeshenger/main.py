@@ -20,6 +20,7 @@ NODE_2_MAC = b"\x44\xb1\x76\x07\x91\x30"
 MAX_PAYLOAD = 180
 RADIO_CHANNEL = 6
 seen = []
+inbox = []
 sequence = 0
 
 
@@ -53,36 +54,74 @@ def serial_frame(line):
     return make_frame(line)
 
 
-def remember(message_id):
-    if message_id in seen:
+def remember(message_id, chunk_index):
+    key = (message_id, chunk_index)
+    if key in seen:
         return False
-    seen.append(message_id)
+    seen.append(key)
     del seen[:-128]
     return True
+
+
+def json_packets(raw):
+    """Yield complete JSON objects from padded or concatenated radio bytes."""
+    start = -1
+    depth = 0
+    quoted = False
+    escaped = False
+    index = 0
+    while index < len(raw):
+        value = raw[index]
+        if start < 0:
+            if value == 123 or value == b"{":
+                start = index
+                depth = 1
+            index += 1
+            continue
+        if quoted:
+            if escaped:
+                escaped = False
+            elif value == 92 or value == b"\\":
+                escaped = True
+            elif value == 34 or value == b'"':
+                quoted = False
+        elif value == 34 or value == b'"':
+            quoted = True
+        elif value == 123 or value == b"{":
+            depth += 1
+        elif value == 125 or value == b"}":
+            depth -= 1
+            if depth == 0:
+                yield raw[start:index + 1]
+                start = -1
+        index += 1
 
 
 def process_incoming(host, raw):
     if raw is None:
         return
     emit("received_raw", peer=mac_text(host), bytes=len(raw))
-    try:
-        frame = json.loads(raw.decode())
-        if not wire.valid(frame):
-            emit("invalid", peer=mac_text(host), frame=frame, expected_crc=wire.checksum(frame), received_crc=frame.get("crc32"))
-        elif remember(frame["message_id"]):
-            if frame.get("kind") == "ack":
-                emit("ack_received", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
-            else:
-                emit("message", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
-                try:
-                    radio.add_peer(host, channel=RADIO_CHANNEL)
-                except Exception:
-                    pass
-                ack = wire.ack_frame(NODE_ID, frame.get("sender", mac_text(host)), frame["message_id"], frame.get("conversation_id", ""), time.ticks_ms())
-                ack_sent = radio.send(host, json.dumps(ack).encode(), True)
-                emit("ack_sent", ack_for=frame["message_id"], peer=mac_text(host), radio_ok=ack_sent)
-    except Exception as error:
-        emit("error", stage="receive", detail=str(error), peer=mac_text(host))
+    # ESP-NOW v2 can expose a fixed-size buffer containing one or more padded
+    # payloads. Recover complete objects without trusting the buffer boundary.
+    for packet in json_packets(raw):
+        try:
+            frame = json.loads(packet.decode())
+            if not wire.valid(frame):
+                emit("invalid", peer=mac_text(host), frame=frame, expected_crc=wire.checksum(frame), received_crc=frame.get("crc32"))
+            elif remember(frame["message_id"], frame.get("chunk_index", 0)):
+                if frame.get("kind") == "ack":
+                    emit("ack_received", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
+                else:
+                    emit("message", frame=frame, peer=mac_text(host), channel=RADIO_CHANNEL)
+                    try:
+                        radio.add_peer(host, channel=RADIO_CHANNEL)
+                    except Exception:
+                        pass
+                    ack = wire.ack_frame(NODE_ID, frame.get("sender", mac_text(host)), frame["message_id"], frame.get("conversation_id", ""), time.ticks_ms())
+                    ack_sent = radio.send(host, json.dumps(ack).encode(), True)
+                    emit("ack_sent", ack_for=frame["message_id"], peer=mac_text(host), radio_ok=ack_sent)
+        except Exception as error:
+            emit("error", stage="receive", detail=str(error), peer=mac_text(host))
 
 
 def setup_radio():
@@ -124,13 +163,20 @@ def radio_receive_callback(radio_instance):
         host, raw = radio_instance.irecv(0)
         if host is None:
             return
-        process_incoming(host, raw)
+        # Keep the IRQ callback short. JSON parsing and radio.send() can block
+        # and must happen in the normal interpreter loop, not in the ESP-NOW
+        # interrupt context.
+        if len(inbox) < 32:
+            inbox.append((host, raw))
 
 
 radio.irq(radio_receive_callback)
 
 while True:
     try:
+        while inbox:
+            host, raw = inbox.pop(0)
+            process_incoming(host, raw)
         import uselect
         poll = uselect.poll()
         poll.register(__import__("sys").stdin, uselect.POLLIN)

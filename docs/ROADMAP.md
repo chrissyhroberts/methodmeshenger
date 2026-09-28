@@ -22,6 +22,10 @@ identity records, directory resolution and a durable host-side spool. The
 remaining work in this phase is integration: a real client queue, retry policy
 and secure session establishment.
 
+The serial client and two-board end-to-end path are now working. Retry-after-
+timeout and replay suppression are covered in the client and host tests; the
+remaining hardware checks are power-cycle recovery and multi-chunk transfer.
+
 ## Phase 3 — content
 
 - chunked attachments with metadata and hashes;

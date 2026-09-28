@@ -120,11 +120,17 @@ assume that a complete attachment or voice recording fits in one packet.
 The chunking layer is therefore part of version 1, even if the initial UI only
 uses one-chunk text messages.
 
+Clients should pace consecutive chunks rather than writing an entire transfer
+into the serial bridge at once. The reference client uses a conservative
+75-millisecond inter-chunk delay by default; a future negotiated transport can
+replace this with an explicit flow-control window.
+
 ## Compatibility rules
 
 1. A receiver must ignore unknown fields.
 2. A receiver must reject an unsupported `version` without crashing.
-3. A receiver must deduplicate by `message_id` and `chunk_index`.
+3. A receiver must deduplicate by the pair `message_id` and `chunk_index`;
+   chunks belonging to one message are not duplicates of one another.
 4. A receiver must not deliver incomplete attachments or voice content as if
    they were complete.
 5. `@username` is resolved by a client directory before a frame is created;

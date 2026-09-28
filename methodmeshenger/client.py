@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .directory import Directory
-from .protocol import EnvelopeError, ack_frame, chunk_text, decode_frame, encode_frame
+from .protocol import ChunkAssembler, Deduplicator, EnvelopeError, ack_frame, chunk_text, decode_frame, encode_frame
 from .spool import Spool
 
 
@@ -36,8 +36,10 @@ class Client:
         self.received: list[dict] = []
         self.last_error: str | None = None
         self._sequence = 0
+        self._dedupe = Deduplicator()
+        self._assembler = ChunkAssembler()
 
-    def send_text(self, handle: str, text: str, *, now_ms: int | None = None) -> list[Delivery]:
+    def send_text(self, handle: str, text: str, *, now_ms: int | None = None, inter_chunk_delay_ms: int = 75, wait_for_ack: bool = True, ack_timeout_ms: int = 2000) -> list[Delivery]:
         target = self.directory.resolve(handle)
         if target["type"] != "user":
             raise EnvelopeError("text delivery requires a user handle")
@@ -59,6 +61,12 @@ class Client:
                 key = self.spool.enqueue(frame, now_ms=timestamp)
                 deliveries.append(Delivery(key, dict(frame)))
                 self._transmit(key, frame)
+                if wait_for_ack and frame is not frames[-1]:
+                    deadline = time.monotonic() + ack_timeout_ms / 1000
+                    while self.spool.items[key]["state"] != "received" and time.monotonic() < deadline:
+                        time.sleep(0.01)
+                if inter_chunk_delay_ms > 0 and frame is not frames[-1]:
+                    time.sleep(inter_chunk_delay_ms / 1000)
         return deliveries
 
     def ingest_line(self, line: bytes | str) -> list[dict]:
@@ -78,9 +86,17 @@ class Client:
             return []
         if record.get("event") == "message" and isinstance(record.get("frame"), dict):
             frame = decode_frame(json.dumps(record["frame"]))
-            self.received.append(dict(frame))
             self._send_ack(frame)
-            return [dict(frame)]
+            if not self._dedupe.accept(frame):
+                return []
+            assembled = self._assembler.add(frame)
+            if assembled is None:
+                return []
+            delivered = dict(frame)
+            delivered["payload"] = assembled
+            delivered["assembled"] = True
+            self.received.append(delivered)
+            return [delivered]
         if record.get("event") == "ack_received" and isinstance(record.get("frame"), dict):
             frame = decode_frame(json.dumps(record["frame"]))
             try:
@@ -97,6 +113,15 @@ class Client:
         count = 0
         for item in self.spool.pending():
             self._transmit(item["key"] if "key" in item else self.spool.key(item["frame"]), item["frame"])
+            count += 1
+        return count
+
+    def retry_due(self, *, now_ms: int, retry_after_ms: int = 5000) -> int:
+        count = 0
+        for key, item in self.spool.retryable(now_ms, retry_after_ms):
+            if item["state"] == "enroute":
+                self.spool.transition(key, "queued", now_ms=now_ms)
+            self._transmit(key, item["frame"])
             count += 1
         return count
 

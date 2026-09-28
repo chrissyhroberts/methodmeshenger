@@ -96,3 +96,14 @@ class Spool:
                 continue
             result.append(item)
         return sorted(result, key=lambda item: item["updated_at_ms"])
+
+    def retryable(self, now_ms: int, retry_after_ms: int) -> list[tuple[str, dict[str, Any]]]:
+        """Return queued/failed or stale in-flight items ready for retry."""
+
+        result = []
+        for key, item in self.items.items():
+            if item["state"] in TERMINAL_STATES:
+                continue
+            if item["state"] in {"queued", "failed"} or now_ms - item["updated_at_ms"] >= retry_after_ms:
+                result.append((key, item))
+        return sorted(result, key=lambda pair: pair[1]["updated_at_ms"])

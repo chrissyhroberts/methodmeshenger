@@ -40,6 +40,10 @@ Run the same command on the second node with the identities reversed. The
 client resolves the handle, creates the canonical frame, tracks it in the
 local spool, and marks it received when an application ACK comes back.
 
+The current client transport is intentionally plaintext and development-only.
+The security boundary is ready for a complete audited asynchronous session
+implementation; do not use this test client for sensitive messages.
+
 ## Development tests
 
 With the development dependency installed, run:

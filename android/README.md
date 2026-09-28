@@ -1,16 +1,14 @@
 # Android integration boundary
 
-This directory defines the phone-side boundary for the secure session adapter.
-It is intentionally a small Kotlin library contract rather than a second
-cryptographic implementation.
+This directory contains the standalone MethodMeshenger Android app and its
+phone-side boundary for the secure session adapter. It is intentionally a
+small Kotlin layer rather than a second cryptographic implementation.
 
 The eventual Android build will package a native library built from
 `../secure-session`. The Kotlin layer must never implement a plaintext
 fallback: if the native adapter is absent, unsupported, or cannot restore its
 protected state, the operation fails visibly.
 
-The native packaging step is not enabled yet because this repository does not
-currently contain the MethodMesh Android host project, its NDK configuration,
-or the platform keystore policy. Those choices belong to the host app. The
-Kotlin API below is the stable seam the host can depend on while that work is
-added.
+The app is currently a shell: node discovery, the Rust native packaging, and
+the platform keystore policy are the next integration steps. MethodMesh is not
+part of this build.

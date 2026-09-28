@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "methodmeshenger-android"
 include(":methodmeshenger-secure")
+include(":app")

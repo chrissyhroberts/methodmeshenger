@@ -1,6 +1,14 @@
 package org.methodmeshenger.app
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -12,13 +20,44 @@ import android.widget.TextView
 import org.methodmeshenger.secure.UsbNodeTransport
 
 class MainActivity : Activity() {
+    private companion object {
+        const val ACTION_USB_PERMISSION = "org.methodmeshenger.app.USB_PERMISSION"
+    }
+
     private lateinit var status: TextView
     private lateinit var usbTransport: UsbNodeTransport
+    private val usbPermissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != ACTION_USB_PERMISSION) return
+            val device = if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+            }
+            if (device == null || !intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                status.text = "USB permission was not granted"
+                return
+            }
+            status.text = if (usbTransport.connect(device)) {
+                "USB node connected"
+            } else {
+                "USB node could not be opened"
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         usbTransport = UsbNodeTransport(this) { line ->
             runOnUiThread { status.text = "Node replied: $line" }
+        }
+        val filter = IntentFilter(ACTION_USB_PERMISSION)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(usbPermissionReceiver, filter)
         }
         setContentView(buildScreen())
     }
@@ -70,7 +109,8 @@ class MainActivity : Activity() {
                 status.text = if (devices.isEmpty()) {
                     "No USB node found — connect an ESP board with an OTG adapter"
                 } else {
-                    "Found ${devices.size} USB node(s); permission pairing is next"
+                    requestUsbPermission(devices.first())
+                    "Requesting USB permission for ${devices.first().deviceName}"
                 }
             }
         })
@@ -93,8 +133,24 @@ class MainActivity : Activity() {
         return root
     }
 
+    private fun requestUsbPermission(device: UsbDevice) {
+        val intent = PendingIntent.getBroadcast(
+            this,
+            0,
+            Intent(ACTION_USB_PERMISSION).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val manager = getSystemService(Context.USB_SERVICE) as UsbManager
+        if (manager.hasPermission(device)) {
+            if (usbTransport.connect(device)) status.text = "USB node connected"
+            return
+        }
+        manager.requestPermission(device, intent)
+    }
+
     override fun onDestroy() {
         usbTransport.close()
+        unregisterReceiver(usbPermissionReceiver)
         super.onDestroy()
     }
 }

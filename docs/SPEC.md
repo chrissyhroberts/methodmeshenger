@@ -57,6 +57,11 @@ library contains the signed identity-record shape used by this ceremony.
 Discovery is not trust. A beacon can make a node visible; only an authenticated
 identity record makes it an acceptable recipient or relay.
 
+The client keeps this distinction explicit: observing a valid signed record
+creates an `unverified` device entry; an operator must promote it to
+`verified`. A changed signing key requires explicit re-pairing, and a revoked
+device cannot satisfy the verified-device check.
+
 ## Message lifecycle
 
 ```text
@@ -84,7 +89,10 @@ handshake is invented for this project.
 
 The repository currently contains a serial-first MicroPython transport testbed
 and a Python reference library for envelopes, directory resolution, spooling,
-signed onboarding records and a bootstrap encrypted-payload boundary. The
-MicroPython demo is intentionally not an E2E-secure messenger yet. A complete
-X3DH/Double-Ratchet client remains a deliberate security milestone, not a
-firmware shortcut.
+signed onboarding records, explicit local trust decisions and a bootstrap
+encrypted-payload boundary. The separate Apache-2.0 Rust adapter now proves
+vodozemac/Olm pre-key setup, ratcheted replies and encrypted restart-safe
+pickling, but it is not yet wired into a phone client. The MicroPython demo is
+intentionally not an E2E-secure messenger; Android/phone integration,
+platform-backed key storage, verification UX and interoperability testing
+remain deliberate milestones, not firmware shortcuts.

@@ -6,6 +6,7 @@ This deliberately has no BLE, provisioning, encryption or MethodMesh code.
 
 import json
 import time
+import ubinascii
 from machine import unique_id
 
 import network
@@ -49,6 +50,9 @@ def serial_frame(line):
         candidate = json.loads(line)
         if wire.valid(candidate):
             return candidate
+        if candidate.get("methodmeshenger_serial") == 1 and candidate.get("encoding") == "utf-8":
+            decoded = ubinascii.a2b_base64(candidate.get("payload_b64", "")).decode("utf-8")
+            return make_frame(decoded)
     except Exception:
         pass
     return make_frame(line)

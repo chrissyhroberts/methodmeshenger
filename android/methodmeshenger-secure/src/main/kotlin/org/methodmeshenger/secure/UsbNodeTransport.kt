@@ -7,6 +7,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import android.util.Base64
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
@@ -46,7 +47,11 @@ class UsbNodeTransport(context: Context, private val onLine: (String) -> Unit) {
     fun sendLine(line: String): Boolean {
         val current = connection ?: return false
         val endpoint = output ?: return false
-        val bytes = (line.trimEnd() + "\n").toByteArray(StandardCharsets.UTF_8)
+        // Keep the USB control line ASCII-only. Some ESP serial console
+        // decoders lose multi-byte input before MicroPython sees it.
+        val payload = Base64.encodeToString(line.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+        val framed = "{\"methodmeshenger_serial\":1,\"encoding\":\"utf-8\",\"payload_b64\":\"$payload\"}\n"
+        val bytes = framed.toByteArray(StandardCharsets.US_ASCII)
         return current.bulkTransfer(endpoint, bytes, bytes.size, 2_000) == bytes.size
     }
 

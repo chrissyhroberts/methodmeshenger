@@ -96,7 +96,7 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(42, 42, 42))
         })
         root.addView(TextView(this).apply {
-            text = "Private messages over your own ESP-NOW nodes"
+            text = "Private messages over your own ESP-NOW nodes\nUSB UTF-8 transport v0.1.1"
             textSize = 16f
             setTextColor(Color.DKGRAY)
             setPadding(0, 8, 0, 28)

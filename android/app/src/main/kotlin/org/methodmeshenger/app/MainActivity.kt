@@ -9,12 +9,17 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.methodmeshenger.secure.UsbNodeTransport
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var usbTransport: UsbNodeTransport
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        usbTransport = UsbNodeTransport(this) { line ->
+            runOnUiThread { status.text = "Node replied: $line" }
+        }
         setContentView(buildScreen())
     }
 
@@ -59,8 +64,15 @@ class MainActivity : Activity() {
         }
         nodeCard.addView(status)
         nodeCard.addView(Button(this).apply {
-            text = "Connect a node"
-            setOnClickListener { status.text = "Node discovery will be added next" }
+            text = "Scan USB nodes"
+            setOnClickListener {
+                val devices = usbTransport.devices()
+                status.text = if (devices.isEmpty()) {
+                    "No USB node found — connect an ESP board with an OTG adapter"
+                } else {
+                    "Found ${devices.size} USB node(s); permission pairing is next"
+                }
+            }
         })
         root.addView(nodeCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 24 })
 
@@ -79,5 +91,10 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, 0, 1f))
 
         return root
+    }
+
+    override fun onDestroy() {
+        usbTransport.close()
+        super.onDestroy()
     }
 }

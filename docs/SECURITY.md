@@ -50,6 +50,11 @@ mutable username. `@alice` is a directory lookup and presentation handle;
 Username claims must be verified or manually trusted. A node must not accept a
 new public key merely because somebody announces the same username.
 
+Signature validity and operator trust are separate: a newly observed device
+starts unverified, and a changed signing key requires explicit re-pairing. A
+local trust decision can be revoked; discovery alone is never permission to
+deliver protected content.
+
 ## One-to-one messages
 
 The long-term target is an asynchronous authenticated key agreement followed

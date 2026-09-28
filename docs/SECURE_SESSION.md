@@ -19,22 +19,27 @@ The current repository exposes these requirements through
 cryptographic implementation. `associated_data()` gives the adapter a stable
 binding for routing, chunk coordinates, expiry and content metadata.
 
-## Candidate decision
+The first concrete adapter is scaffolded in [`secure-session`](../secure-session/).
+It uses vodozemac/Olm for asynchronous pre-key establishment and the Double
+Ratchet, while keeping MethodMeshenger’s envelope binding outside the library.
 
-The natural protocol family is X3DH followed by Double Ratchet. The official
-Signal specifications define the asynchronous setup and ratcheting properties.
-The official `libsignal` repository exposes implementations used by Signal
-clients, but it also states that external use is unsupported and is licensed
-under AGPL-3.0. That creates a product/licensing decision before it can become
-a MethodMeshenger dependency.
+## Decision
 
-Noise is a useful framework for authenticated handshakes, but it is not by
-itself a complete asynchronous messenger session or Double-Ratchet
-implementation. Choosing Noise would require selecting and reviewing an
-additional ratchet/session layer.
+Use vodozemac/Olm for one-to-one sessions. vodozemac is Apache-2.0 licensed,
+implements an asynchronous Olm Double Ratchet, and exposes encrypted state
+pickling for client persistence.
+
+The adapter is pinned to vodozemac `0.11` and its first round-trip test is
+passing locally. This proves the library boundary, not production readiness:
+client-side encrypted persistence, device verification, recovery, and Android
+FFI still need to be implemented and tested.
+
+Megolm is reserved for a later group-message design because its single-ratchet
+trade-offs differ from one-to-one Olm.
 
 ## Implementation rule
 
-Until an approved adapter is selected, the client remains explicitly marked
-development-only. It may exercise transport, addressing, chunking and ACKs,
-but it must not be described as secure messaging.
+Until the adapter has passed client persistence, verification and interoperability
+tests, the client remains explicitly marked development-only. It may exercise
+transport, addressing, chunking and ACKs, but it must not be described as
+secure messaging.

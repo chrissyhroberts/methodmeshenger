@@ -44,7 +44,14 @@ The current client transport is intentionally plaintext and development-only.
 The security boundary is ready for a complete audited asynchronous session
 implementation; do not use this test client for sensitive messages.
 See [`docs/SECURE_SESSION.md`](docs/SECURE_SESSION.md) for the adapter boundary
-and the remaining library/licensing decision.
+and the secure-session implementation status.
+
+The permissively licensed Rust adapter is in [`secure-session`](secure-session).
+Run its tests with:
+
+```text
+cargo test --manifest-path secure-session/Cargo.toml
+```
 
 ## Development tests
 

@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var status: TextView
+    private lateinit var eventLog: TextView
     private lateinit var sendTestButton: Button
     private lateinit var usbTransport: UsbNodeTransport
     private var pendingUsbDeviceName: String? = null
@@ -53,7 +54,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         usbTransport = UsbNodeTransport(this) { line ->
-            runOnUiThread { status.text = "Node replied: $line" }
+            runOnUiThread {
+                status.text = "Node replied"
+                eventLog.append("\n$line")
+            }
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -107,6 +111,14 @@ class MainActivity : Activity() {
             setPadding(0, 10, 0, 16)
         }
         nodeCard.addView(status)
+        eventLog = TextView(this).apply {
+            text = "Recent node events:"
+            textSize = 12f
+            setTextColor(Color.DKGRAY)
+            setTextIsSelectable(true)
+            setPadding(0, 0, 0, 12)
+        }
+        nodeCard.addView(eventLog)
         nodeCard.addView(Button(this).apply {
             text = "Scan USB nodes"
             setOnClickListener {

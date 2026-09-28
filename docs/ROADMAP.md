@@ -26,6 +26,9 @@ The serial client and two-board end-to-end path are now working. Retry-after-
 timeout and replay suppression are covered in the client and host tests; the
 remaining hardware checks are power-cycle recovery and multi-chunk transfer.
 
+Before secure messaging can be enabled, select and approve the audited client
+session adapter described in [`SECURE_SESSION.md`](SECURE_SESSION.md).
+
 ## Phase 3 — content
 
 - chunked attachments with metadata and hashes;

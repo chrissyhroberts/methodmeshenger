@@ -43,6 +43,8 @@ local spool, and marks it received when an application ACK comes back.
 The current client transport is intentionally plaintext and development-only.
 The security boundary is ready for a complete audited asynchronous session
 implementation; do not use this test client for sensitive messages.
+See [`docs/SECURE_SESSION.md`](docs/SECURE_SESSION.md) for the adapter boundary
+and the remaining library/licensing decision.
 
 ## Development tests
 

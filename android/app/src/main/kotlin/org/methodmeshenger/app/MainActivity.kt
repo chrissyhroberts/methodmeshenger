@@ -176,4 +176,14 @@ class MainActivity : Activity() {
         unregisterReceiver(usbPermissionReceiver)
         super.onDestroy()
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (!::sendTestButton.isInitialized) return
+        val manager = getSystemService(Context.USB_SERVICE) as UsbManager
+        val authorized = usbTransport.devices().firstOrNull { manager.hasPermission(it) }
+        if (authorized != null && usbTransport.connect(authorized)) {
+            updateConnectionStatus(true)
+        }
+    }
 }

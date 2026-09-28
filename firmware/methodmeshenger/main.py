@@ -51,7 +51,10 @@ def serial_frame(line):
         if wire.valid(candidate):
             return candidate
         if candidate.get("methodmeshenger_serial") == 1 and candidate.get("encoding") == "utf-8":
-            decoded = ubinascii.a2b_base64(candidate.get("payload_b64", "")).decode("utf-8")
+            encoded = candidate.get("payload_b64", "")
+            decoded_bytes = ubinascii.a2b_base64(encoded)
+            decoded = decoded_bytes.decode("utf-8")
+            emit("serial_bridge", encoded_chars=len(encoded), decoded_chars=len(decoded), decoded_bytes=len(decoded_bytes))
             return make_frame(decoded)
     except Exception:
         pass

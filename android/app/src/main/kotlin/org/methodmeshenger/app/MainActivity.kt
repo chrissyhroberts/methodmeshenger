@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var status: TextView
+    private lateinit var sendTestButton: Button
     private lateinit var usbTransport: UsbNodeTransport
     private var pendingUsbDeviceName: String? = null
     private val usbPermissionReceiver = object : BroadcastReceiver() {
@@ -45,11 +46,7 @@ class MainActivity : Activity() {
                 status.text = "USB permission failed (device=${device != null}, result=$broadcastGranted)"
                 return
             }
-            status.text = if (usbTransport.connect(device)) {
-                "USB node connected"
-            } else {
-                "USB node could not be opened"
-            }
+            updateConnectionStatus(usbTransport.connect(device))
         }
     }
 
@@ -122,6 +119,18 @@ class MainActivity : Activity() {
                 }
             }
         })
+        sendTestButton = Button(this).apply {
+            text = "Send test message"
+            isEnabled = false
+            setOnClickListener {
+                status.text = if (usbTransport.sendLine("ping")) {
+                    "Sent ping — waiting for node response"
+                } else {
+                    "The USB node is no longer connected"
+                }
+            }
+        }
+        nodeCard.addView(sendTestButton)
         root.addView(nodeCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 24 })
 
         root.addView(TextView(this).apply {
@@ -151,10 +160,15 @@ class MainActivity : Activity() {
         )
         val manager = getSystemService(Context.USB_SERVICE) as UsbManager
         if (manager.hasPermission(device)) {
-            if (usbTransport.connect(device)) status.text = "USB node connected"
+            updateConnectionStatus(usbTransport.connect(device))
             return
         }
         manager.requestPermission(device, intent)
+    }
+
+    private fun updateConnectionStatus(connected: Boolean) {
+        sendTestButton.isEnabled = connected
+        status.text = if (connected) "USB node connected" else "USB node could not be opened"
     }
 
     override fun onDestroy() {

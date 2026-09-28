@@ -24,6 +24,9 @@ yet a finished secure messenger: the constrained firmware remains plaintext
 and the final asynchronous ratchet is still ahead.
 
 The working firmware is in [`firmware/methodmeshenger`](firmware/methodmeshenger).
+An Android-facing Kotlin boundary is being prepared in [`android`](android);
+the native Rust packaging and host-app keystore integration are not enabled
+yet.
 
 ## Laptop client
 
